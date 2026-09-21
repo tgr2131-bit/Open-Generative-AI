@@ -221,3 +221,42 @@ test('the studio page renders the custom-upstream warning on the server', () => 
     // It must state plainly that output is not real.
     assert.match(bannerSource, /not a real generation/);
 });
+
+test('regression: allowedDevOrigins is not set by default', async () => {
+    // Defining this option makes Next's dev server *block* (403) cross-site
+    // /_next/* requests instead of warning about them, and its cross-site
+    // subresource branch ignores the allowlist entirely - so a preview pane
+    // embedding the app gets no JavaScript and renders blank. It must therefore
+    // stay undefined unless an operator explicitly opts in.
+    //
+    // This was a real regression: setting it to '*.e2b.app' blanked the preview.
+    const savedEnv = process.env.OGA_ALLOWED_DEV_ORIGINS;
+    delete process.env.OGA_ALLOWED_DEV_ORIGINS;
+
+    try {
+        const configUrl = new URL('file://' + path.join(__dirname, '..', 'next.config.mjs'));
+        configUrl.searchParams.set('cacheBust', String(Date.now()));
+        const { default: config } = await import(configUrl.href);
+
+        assert.equal(
+            'allowedDevOrigins' in config,
+            false,
+            'allowedDevOrigins must not be defined by default - it turns dev-server warnings into 403s',
+        );
+    } finally {
+        if (savedEnv !== undefined) process.env.OGA_ALLOWED_DEV_ORIGINS = savedEnv;
+    }
+});
+
+test('opting in to allowedDevOrigins still works when explicitly requested', async () => {
+    process.env.OGA_ALLOWED_DEV_ORIGINS = 'gateway.internal, *.corp.example';
+    try {
+        const configUrl = new URL('file://' + path.join(__dirname, '..', 'next.config.mjs'));
+        configUrl.searchParams.set('cacheBust', String(Date.now() + 1));
+        const { default: config } = await import(configUrl.href);
+
+        assert.deepEqual(config.allowedDevOrigins, ['gateway.internal', '*.corp.example']);
+    } finally {
+        delete process.env.OGA_ALLOWED_DEV_ORIGINS;
+    }
+});
