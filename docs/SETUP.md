@@ -3,6 +3,9 @@
 How to get Open Generative AI running on your own machine, and what to do when a
 step fails. For the architecture and feature overview see the [README](../README.md).
 
+> Just want real generations as quickly as possible? See
+> [RUN-LOCALLY.md](./RUN-LOCALLY.md). This document is the fuller reference.
+
 ## Pick your path
 
 | Goal | Path |

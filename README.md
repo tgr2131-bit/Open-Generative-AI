@@ -413,6 +413,9 @@ Every image you upload is saved locally (URL + thumbnail) so you never upload th
 
 ## 🚀 Quick Start
 
+> **Want real generations on your own machine?** [docs/RUN-LOCALLY.md](docs/RUN-LOCALLY.md) is the
+> five-minute path: clone → `npm run setup:local` → `npm run dev` → paste your key.
+
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v18+)
