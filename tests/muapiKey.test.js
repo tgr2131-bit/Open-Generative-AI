@@ -179,3 +179,45 @@ test('every route handler resolves keys through the shared helper', () => {
         );
     }
 });
+
+test('isDefaultMuapiBaseUrl distinguishes the real API from a stub or gateway', async () => {
+    const { isDefaultMuapiBaseUrl, getMuapiBaseUrl } =
+        await import(path.join(__dirname, '..', 'src', 'lib', 'muapiBase.js'));
+
+    assert.equal(isDefaultMuapiBaseUrl({}), true);
+    assert.equal(isDefaultMuapiBaseUrl({ MUAPI_BASE_URL: '   ' }), true);
+
+    // The bundled mock and any gateway/mirror must be flagged so the UI can warn.
+    assert.equal(isDefaultMuapiBaseUrl({ MUAPI_BASE_URL: 'http://127.0.0.1:9099' }), false);
+    assert.equal(isDefaultMuapiBaseUrl({ MUAPI_BASE_URL: 'https://gateway.internal' }), false);
+
+    // Trailing slashes must not defeat the comparison.
+    assert.equal(isDefaultMuapiBaseUrl({ MUAPI_BASE_URL: 'https://api.muapi.ai/' }), true);
+    assert.equal(getMuapiBaseUrl({ MUAPI_BASE_URL: 'https://api.muapi.ai///' }), 'https://api.muapi.ai');
+});
+
+test('the mock upstream is never the default, so it cannot be mistaken for real', () => {
+    const mockSource = fs.readFileSync(path.join(__dirname, '..', 'scripts', 'mock-muapi.js'), 'utf8');
+
+    // The mock must never bind the real host, and must say its output is fake.
+    assert.equal(/api\.muapi\.ai/.test(mockSource.split('\n').filter((l) => l.includes('listen') || l.includes('HOST =')).join('\n')), false);
+    assert.match(mockSource, /not a real generation/);
+});
+
+test('the studio page renders the custom-upstream warning on the server', () => {
+    const pageSource = fs.readFileSync(
+        path.join(__dirname, '..', 'app', 'studio', '[[...slug]]', 'page.js'),
+        'utf8',
+    );
+    const bannerSource = fs.readFileSync(
+        path.join(__dirname, '..', 'components', 'CustomUpstreamBanner.js'),
+        'utf8',
+    );
+
+    // Server-rendered: no 'use client', so the warning is in the initial HTML.
+    assert.equal(/'use client'/.test(bannerSource), false);
+    assert.match(pageSource, /CustomUpstreamBanner/);
+    assert.match(bannerSource, /isDefaultMuapiBaseUrl/);
+    // It must state plainly that output is not real.
+    assert.match(bannerSource, /not a real generation/);
+});

@@ -21,3 +21,12 @@ export function getMuapiBaseUrl(env = process.env) {
     const trimmed = configured.trim().replace(/\/+$/, '');
     return trimmed || DEFAULT_MUAPI_BASE_URL;
 }
+
+/**
+ * True when calls go somewhere other than the public API - the bundled mock
+ * (`npm run mock:muapi`), a gateway, or a mirror. Used to warn that results may
+ * not be real generations.
+ */
+export function isDefaultMuapiBaseUrl(env = process.env) {
+    return getMuapiBaseUrl(env) === DEFAULT_MUAPI_BASE_URL;
+}
