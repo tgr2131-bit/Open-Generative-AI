@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getMuapiBaseUrl } from '../../../../../src/lib/muapiBase';
+import { logUpstreamFailure, upstreamFailureBody } from '../../../../../src/lib/muapiError';
 import { resolveApiKey } from '../../../../../src/lib/muapiKey';
 
 const MUAPI_BASE = getMuapiBaseUrl();
@@ -34,7 +35,8 @@ export async function GET(request, { params }) {
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logUpstreamFailure(error, targetUrl);
+        return NextResponse.json(upstreamFailureBody(error, targetUrl), { status: 502 });
     }
 }
 
@@ -56,6 +58,7 @@ export async function POST(request, { params }) {
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logUpstreamFailure(error, targetUrl);
+        return NextResponse.json(upstreamFailureBody(error, targetUrl), { status: 502 });
     }
 }

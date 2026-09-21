@@ -100,6 +100,32 @@ It is read at request time, so `next start` picks it up from its own
 environment — you do not need to rebuild after changing it. In the app,
 **Settings** shows `Provided by this deployment` while a server key is in use.
 
+## Working on the UI without API access
+
+If the machine running the app cannot reach `api.muapi.ai` (locked-down CI, a
+sandbox, a corporate network), every studio shows a proxy error and no UI work is
+possible. Run a local stand-in instead:
+
+```bash
+npm run mock:muapi                                 # terminal 1, listens on 127.0.0.1:9099
+MUAPI_BASE_URL=http://127.0.0.1:9099 npm run dev   # terminal 2
+```
+
+The mock implements enough of the Muapi contract for the full flow — submit,
+poll, balance, upload, and the list endpoints the studios load — and returns a
+**self-describing SVG placeholder** for every result, so a mock output is never
+mistaken for a real generation. Because results are `data:` URLs, they render in
+the app without any network access.
+
+Caveats:
+
+- Results are placeholders, not model output. Any API key is accepted.
+- Video studios play their result in a `<video>` element, which an SVG cannot
+  fill. Set `MOCK_VIDEO_URL` to a public sample MP4 the **browser** can reach and
+  video endpoints will return that instead.
+- Point `MUAPI_BASE_URL` back at `https://api.muapi.ai` (or unset it) for real
+  generation.
+
 ## Environment variables
 
 | Variable | Default | Purpose |
@@ -118,7 +144,8 @@ environment — you do not need to rebuild after changing it. In the app,
 | `npm error path …/node_modules/electron` with `unable to verify the first certificate`, `ECONNRESET`, or a 403 during install | Electron's prebuilt binary host is blocked (proxy, firewall, sandbox) | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install`. The web version works; `npm run electron:dev` does not until you run `npm rebuild electron` on an unrestricted network |
 | `Couldn't find a 'pages' directory` | Next.js cannot see `app/`, usually because workspace packages are missing or unbuilt | Run `npm run setup:local` from the repo root (the directory containing `app/`, `package.json`, `next.config.mjs`) |
 | `Failed to download 'Inter' from Google Fonts. Using fallback font instead.` (dev) | No access to `fonts.googleapis.com` | Harmless — the dev server falls back to a system font. The **production build has no such fallback**: `npm run build` fails outright with `` `next/font` error: Failed to fetch `Inter` ``. Build on a machine that can reach Google Fonts, or replace `next/font/google` in `app/layout.js` with `next/font/local` and a bundled font file |
-| Setup reports `api.muapi.ai NOT reachable (ECONNRESET)` and generation fails in the UI | The **server** running the app cannot reach the Muapi API | Unblock `api.muapi.ai` for the machine running the dev server. A browser-side proxy will not help: all API calls are proxied server-side by design, so the restriction must be lifted where the app runs |
+| `{"error":"fetch failed"}` in an older build, or `{"error":"ECONNRESET reaching api.muapi.ai", "code": ..., "hint": ...}` | The **server** running the app cannot reach the upstream. The response names the cause code rather than hiding it behind `fetch failed` | Match the `code`: `ECONNRESET` → an egress firewall or TLS-intercepting proxy is resetting the connection, `ENOTFOUND` → DNS, `ECONNREFUSED` → nothing listening (a wrong `MUAPI_BASE_URL` looks like this), `UNABLE_TO_VERIFY_LEAF_SIGNATURE` → untrusted proxy certificate. Unblock the host where the app runs — a browser-side proxy will not help: all API calls are proxied server-side by design |
+| Generation appears to hang and only fails 20–30 min later | The polling loop treats any `5xx` as transient and retries up to 900 times, 2 s apart, before surfacing anything | Confirm the upstream is reachable first (see `code` above). The long retry budget is deliberate for video jobs, but it also means a hard connectivity failure takes ~30 min to show up in the UI |
 | `⚠ Cross origin request detected from <host> to /_next/* resource` | Dev server reached through a proxy/tunnel host | Add the host to `OGA_ALLOWED_DEV_ORIGINS` and restart the dev server |
 | Preview pane shows a blank frame / "refused to connect" | `X-Frame-Options` or CSP `frame-ancestors` blocks embedding | Development allows framing by default; if you set `OGA_FRAME_ANCESTORS` explicitly, use `*` or the embedding host |
 
