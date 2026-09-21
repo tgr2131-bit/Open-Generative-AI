@@ -451,7 +451,9 @@ npm run dev            # Hosted web version (Next.js) → http://localhost:3000
 > environment variables, and a troubleshooting table live in
 > [docs/SETUP.md](docs/SETUP.md).
 
-You'll be prompted to enter your Muapi API key on first use (skip the key if you only plan to use local models).
+You'll be prompted to enter your Muapi API key on first use (skip the key if you only plan to use local models). To have a self-hosted instance supply one key for
+all visitors instead — no prompt, and the key never reaches the browser — set
+`MUAPI_API_KEY` before starting the server. See [docs/SETUP.md](docs/SETUP.md#self-hosting-with-one-api-key).
 
 > **Troubleshooting — `Couldn't find a 'pages' directory`**: this means Next.js can't see the `app/` folder. Confirm you're running `npm run dev` from the repo root (the directory that contains `app/`, `package.json`, and `next.config.mjs`), and that you cloned with submodules. Re-run `npm run setup` if `packages/Vibe-Workflow` or `packages/agents` are empty.
 

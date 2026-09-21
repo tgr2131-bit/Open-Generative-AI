@@ -31,6 +31,11 @@ const TABS = [
 
 const STORAGE_KEY = 'muapi_key';
 
+// Stand-in for "the key lives in the server environment" (MUAPI_API_KEY). The
+// studios and this shell only pass it through, so no component has to know the
+// real key; the route handlers swap it for the deployment's key server-side.
+const SERVER_KEY_SENTINEL = '__server_managerd__';
+
 export default function StandaloneShell() {
   const params = useParams();
   const router = useRouter();
@@ -66,6 +71,12 @@ export default function StandaloneShell() {
   
   const [apiKey, setApiKey] = useState(null);
   const [activeTab, setActiveTab] = useState(getInitialTab());
+  // Whether this deployment supplies the Muapi key server-side. Starts false so
+  // the key prompt shows immediately; flips once /api/config answers.
+  const [serverManagedKey, setServerManagedKey] = useState(false);
+  // True while a visitor is replacing the deployment's key with their own, which
+  // makes the key prompt dismissible (they can go back to the shared key).
+  const [enteringOwnKey, setEnteringOwnKey] = useState(false);
 
   const [balance, setBalance] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
@@ -141,13 +152,36 @@ export default function StandaloneShell() {
       fetchBalance(stored);
       // Sync cookie immediately on mount to establish identity for background requests
       document.cookie = `muapi_key=${stored}; path=/; max-age=31536000; SameSite=Lax`;
+      return;
     }
+
+    // No key in this browser - check whether the deployment provides one.
+    // Allows self-hosting with a single key and no per-visitor prompt.
+    let cancelled = false;
+    fetch('/api/config')
+      .then((response) => (response.ok ? response.json() : null))
+      .then((config) => {
+        if (cancelled || !config?.serverApiKey) return;
+        setServerManagedKey(true);
+        setApiKey(SERVER_KEY_SENTINEL);
+      })
+      .catch(() => {
+        // Older deployments have no /api/config; fall through to the prompt.
+      });
+
+    return () => { cancelled = true; };
   }, [fetchBalance]);
 
+  // A key the visitor typed themselves wins over the deployment's key, so it is
+  // what we persist. Only typed keys get here, never the sentinel, which is set
+  // from /api/config alone - so removing MUAPI_API_KEY later brings the prompt
+  // back instead of stranding browsers on a key the server no longer has.
   const handleKeySave = useCallback((key) => {
-    localStorage.setItem(STORAGE_KEY, key);
+    setServerManagedKey(false);
+    setEnteringOwnKey(false);
     setApiKey(key);
     fetchBalance(key);
+    localStorage.setItem(STORAGE_KEY, key);
     document.cookie = `muapi_key=${key}; path=/; max-age=31536000; SameSite=Lax`;
   }, [fetchBalance]);
 
@@ -156,6 +190,21 @@ export default function StandaloneShell() {
     setApiKey(null);
     setBalance(null);
     document.cookie = "muapi_key=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  }, []);
+
+  // Back to the deployment's key, discarding a half-finished override.
+  const useSharedServerKey = useCallback(() => {
+    setEnteringOwnKey(false);
+    setServerManagedKey(true);
+    setApiKey(SERVER_KEY_SENTINEL);
+  }, []);
+
+  // Open the key prompt so a visitor can bill generation to their own account.
+  const handleUseOwnKey = useCallback(() => {
+    setEnteringOwnKey(true);
+    setShowSettings(false);
+    setApiKey(null);
+    setBalance(null);
   }, []);
 
   // Inject API key into all outgoing Axios requests (prop-based approach)
@@ -234,7 +283,19 @@ export default function StandaloneShell() {
   );
 
   if (!apiKey) {
-    return <ApiKeyModal onSave={handleKeySave} />;
+    // Normally the prompt is a hard gate: without a key nothing works. It is
+    // dismissible only while a visitor is overriding a deployment-provided key,
+    // so they can change their mind and go back to the shared key.
+    const canDismiss = serverManagedKey && enteringOwnKey;
+
+    return (
+      <ApiKeyModal
+        onSave={handleKeySave}
+        overlay={canDismiss}
+        onClose={canDismiss ? useSharedServerKey : undefined}
+        title={canDismiss ? 'Use Your Own Key' : undefined}
+      />
+    );
   }
 
   return (
@@ -416,17 +477,25 @@ export default function StandaloneShell() {
                    Active API Key
                 </label>
                 <div className="text-[13px] font-mono text-white/80">
-                  {apiKey.slice(0, 8)}••••••••••••••••
+                  {serverManagedKey
+                    ? 'Provided by this deployment'
+                    : `${apiKey.slice(0, 8)}••••••••••••••••`}
                 </div>
+                {serverManagedKey && (
+                  <p className="text-[11px] text-white/30 mt-2 leading-relaxed">
+                    The server holds the key (MUAPI_API_KEY), so it never reaches this
+                    browser. Enter your own below to use your account instead.
+                  </p>
+                )}
               </div>
             </div>
 
             <div className="flex gap-3">
               <button
-                onClick={handleKeyChange}
+                onClick={serverManagedKey ? handleUseOwnKey : handleKeyChange}
                 className="flex-1 h-10 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs font-semibold transition-all"
               >
-                Change Key
+                {serverManagedKey ? 'Use My Own Key' : 'Change Key'}
               </button>
               <button
                 onClick={() => setShowSettings(false)}

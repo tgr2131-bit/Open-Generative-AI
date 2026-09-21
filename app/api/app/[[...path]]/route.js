@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server';
+import { getMuapiBaseUrl } from '../../../../src/lib/muapiBase';
+import { resolveApiKey } from '../../../../src/lib/muapiKey';
 
-const MUAPI_BASE = 'https://api.muapi.ai';
+const MUAPI_BASE = getMuapiBaseUrl();
 
-function getApiKey(request) {
-    // Only accept x-api-key header. Cookie-based auth is removed for security:
-    // cookies without HttpOnly flag can be stolen by XSS (CWE-522).
-    const headerKey = request.headers.get('x-api-key');
-    return headerKey || null;
-}
 
 function cleanHeaders(request) {
     const headers = new Headers(request.headers);
@@ -30,7 +26,7 @@ export async function GET(request, { params }) {
 
     const headers = cleanHeaders(request);
 
-    const apiKey = getApiKey(request);
+    const apiKey = resolveApiKey(request);
     if (apiKey) headers.set('x-api-key', apiKey);
 
     try {
@@ -71,7 +67,7 @@ export async function POST(request, { params }) {
 
     const headers = cleanHeaders(request);
 
-    const apiKey = getApiKey(request);
+    const apiKey = resolveApiKey(request);
     if (apiKey) headers.set('x-api-key', apiKey);
 
     try {
@@ -99,7 +95,7 @@ export async function DELETE(request, { params }) {
 
     const headers = cleanHeaders(request);
 
-    const apiKey = getApiKey(request);
+    const apiKey = resolveApiKey(request);
     if (apiKey) headers.set('x-api-key', apiKey);
 
     try {
@@ -124,7 +120,7 @@ export async function PUT(request, { params }) {
 
     const headers = cleanHeaders(request);
 
-    const apiKey = getApiKey(request);
+    const apiKey = resolveApiKey(request);
     if (apiKey) headers.set('x-api-key', apiKey);
 
     try {

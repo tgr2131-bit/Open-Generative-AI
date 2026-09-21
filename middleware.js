@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { resolveApiKey } from './src/lib/muapiKey';
+import { getMuapiBaseUrl } from './src/lib/muapiBase';
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
@@ -50,8 +52,18 @@ export function middleware(request) {
                                 url.pathname.startsWith('/api/v1/upload-binary');
 
         if (url.pathname.startsWith('/api/v1') && !isHandledByRoute) {
-            const targetUrl = new URL(url.pathname + url.search, 'https://api.muapi.ai');
-            const rewriteResponse = NextResponse.rewrite(targetUrl);
+            const targetUrl = new URL(url.pathname + url.search, getMuapiBaseUrl());
+
+            // Forward the caller's headers, adding the deployment's key when the
+            // client did not bring one. Without this, a self-hosted instance with
+            // MUAPI_API_KEY set would still fail on this rewritten path.
+            // Verified to take effect in both `next dev` and `next start`, with
+            // the key supplied to the server process at runtime.
+            const headers = new Headers(request.headers);
+            const apiKey = resolveApiKey(request);
+            if (apiKey) headers.set('x-api-key', apiKey);
+
+            const rewriteResponse = NextResponse.rewrite(targetUrl, { request: { headers } });
             return addSecurityHeaders(rewriteResponse);
         }
     }

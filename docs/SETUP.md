@@ -73,12 +73,39 @@ The app opens an API-key modal on first use. Paste the **key value** from
 `/api/*` routes, so the browser never calls `api.muapi.ai` directly.
 
 Skip the key entirely if you only intend to use local models (desktop app,
-**Settings → Local Models**).
+**Settings → Local Models**). To have the server supply the key instead of each
+visitor, see [Self-hosting with one API key](#self-hosting-with-one-api-key).
+
+## Self-hosting with one API key
+
+By default every visitor pastes their own Muapi key, and it is kept in their
+browser. A self-hosted instance can instead hold **one key for everybody**:
+
+```bash
+MUAPI_API_KEY=your-muapi-key npm run dev      # dev
+MUAPI_API_KEY=your-muapi-key npm start        # production, after npm run build
+```
+
+With that set:
+
+- no visitor is prompted, and no key is ever sent to a browser;
+- the key is attached to outbound requests by this app's own `/api/*` routes, so
+  it never appears in page source, `localStorage`, or network calls the browser
+  makes;
+- a visitor who *does* paste their own key overrides the deployment's key for
+  their own session — useful for testing a different account;
+- unset it and behaviour is exactly as before (the key prompt comes back).
+
+It is read at request time, so `next start` picks it up from its own
+environment — you do not need to rebuild after changing it. In the app,
+**Settings** shows `Provided by this deployment` while a server key is in use.
 
 ## Environment variables
 
 | Variable | Default | Purpose |
 |---|---|---|
+| `MUAPI_API_KEY` | unset | Server-side Muapi key. When set, every `/api/*` proxy route uses it for visitors who have not supplied their own key, and the key prompt is skipped. See [Self-hosting with one API key](#self-hosting-with-one-api-key). |
+| `MUAPI_BASE_URL` | `https://api.muapi.ai` | Upstream base URL for Muapi calls. Point it at a Muapi-compatible gateway, regional mirror, or staging endpoint. Set before starting the server. |
 | `OGA_ALLOWED_DEV_ORIGINS` | `*.e2b.app` | Comma-separated extra origins allowed to fetch `/_next/*` from the dev server when it is reached through a proxy or tunnel hostname (Codespaces, containers, sandbox previews). |
 | `OGA_FRAME_ANCESTORS` | `'none'` in production, `*` in development | CSP `frame-ancestors` value, i.e. who may embed the app in an iframe. Production keeps clickjacking protection; development allows preview panes. Set to `'self'` to lock it down in dev too. |
 | `OPEN_GENERATIVE_AI_LOCAL_AI_DIR` | Electron app-data dir | Where the desktop app stores sd.cpp engine + model weights (`bin/`, `models/`, `tmp/`). Point it at another drive to keep multi-GB weights off your system disk. |
@@ -90,7 +117,7 @@ Skip the key entirely if you only intend to use local models (desktop app,
 | `fatal: remote error: upload-pack: not our ref …` then `Fetched in submodule path …, but it did not contain …` | The submodule commit pinned by this repo no longer exists upstream (force-push / history rewrite) | `npm run setup:local` — it falls back to the submodule's default branch. Manually: `git -C packages/Vibe-Workflow fetch origin && git -C packages/Vibe-Workflow checkout origin/main` |
 | `npm error path …/node_modules/electron` with `unable to verify the first certificate`, `ECONNRESET`, or a 403 during install | Electron's prebuilt binary host is blocked (proxy, firewall, sandbox) | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install`. The web version works; `npm run electron:dev` does not until you run `npm rebuild electron` on an unrestricted network |
 | `Couldn't find a 'pages' directory` | Next.js cannot see `app/`, usually because workspace packages are missing or unbuilt | Run `npm run setup:local` from the repo root (the directory containing `app/`, `package.json`, `next.config.mjs`) |
-| `Failed to download 'Inter' from Google Fonts. Using fallback font instead.` | No access to `fonts.googleapis.com` | Harmless — the app renders with a system font. Ignore, or self-host the font if the visual difference matters |
+| `Failed to download 'Inter' from Google Fonts. Using fallback font instead.` (dev) | No access to `fonts.googleapis.com` | Harmless — the dev server falls back to a system font. The **production build has no such fallback**: `npm run build` fails outright with `` `next/font` error: Failed to fetch `Inter` ``. Build on a machine that can reach Google Fonts, or replace `next/font/google` in `app/layout.js` with `next/font/local` and a bundled font file |
 | Setup reports `api.muapi.ai NOT reachable (ECONNRESET)` and generation fails in the UI | The **server** running the app cannot reach the Muapi API | Unblock `api.muapi.ai` for the machine running the dev server. A browser-side proxy will not help: all API calls are proxied server-side by design, so the restriction must be lifted where the app runs |
 | `⚠ Cross origin request detected from <host> to /_next/* resource` | Dev server reached through a proxy/tunnel host | Add the host to `OGA_ALLOWED_DEV_ORIGINS` and restart the dev server |
 | Preview pane shows a blank frame / "refused to connect" | `X-Frame-Options` or CSP `frame-ancestors` blocks embedding | Development allows framing by default; if you set `OGA_FRAME_ANCESTORS` explicitly, use `*` or the embedding host |
