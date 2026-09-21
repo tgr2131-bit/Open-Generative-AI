@@ -1,10 +1,24 @@
 import { NextResponse } from 'next/server';
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// Frame embedding policy (CWE-1021 clickjacking protection).
+// Production keeps the strict default: nothing may frame the app.
+// Development servers are routinely embedded in preview panes / IDE browsers,
+// where `DENY` renders a blank "refused to connect" frame, so development
+// defaults to allowing embedding. Override either default explicitly with
+// OGA_FRAME_ANCESTORS (e.g. OGA_FRAME_ANCESTORS="'self'" or a host list).
+const FRAME_ANCESTORS = process.env.OGA_FRAME_ANCESTORS || (IS_PRODUCTION ? "'none'" : '*');
+
 function addSecurityHeaders(response) {
     // Prevent MIME type sniffing (CWE-693)
     response.headers.set('X-Content-Type-Options', 'nosniff');
-    // Prevent clickjacking (CWE-1021)
-    response.headers.set('X-Frame-Options', 'DENY');
+    // Prevent clickjacking (CWE-1021). Only emitted when framing is restricted -
+    // X-Frame-Options has no "allow any" value, so the permissive dev case relies
+    // on the CSP frame-ancestors directive below.
+    if (FRAME_ANCESTORS !== '*') {
+        response.headers.set('X-Frame-Options', FRAME_ANCESTORS === "'none'" ? 'DENY' : 'SAMEORIGIN');
+    }
     // Enable XSS filter in legacy browsers
     response.headers.set('X-XSS-Protection', '1; mode=block');
     // Referrer policy
@@ -15,7 +29,8 @@ function addSecurityHeaders(response) {
     // and other muapi subdomains that the renderer fetches directly.
     response.headers.set(
         'Content-Security-Policy',
-        "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https://muapi.ai https://*.muapi.ai; font-src 'self' data:;"
+        "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https://muapi.ai https://*.muapi.ai; font-src 'self' data:; " +
+        `frame-ancestors ${FRAME_ANCESTORS};`
     );
     return response;
 }

@@ -22,6 +22,7 @@
     "build:design": "npm run build -w design-agent",
     "build:packages": "npm run build:workflow && npm run build:agent && npm run build:design && npm run build:studio",
     "setup": "git submodule update --init --recursive && npm install && npm run build:packages",
+    "setup:local": "node scripts/setup-local.js",
     "vite:dev": "vite",
     "vite:build": "vite build",
     "electron:dev": "npm run vite:build && electron .",

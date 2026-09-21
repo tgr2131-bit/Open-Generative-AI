@@ -438,12 +438,18 @@ cd Open-Generative-AI
 # Install dependencies + build workspace packages (studio, workflow, agents).
 # This step is REQUIRED — `npm install` alone is not enough; the workspaces
 # need to be built before either dev script will work.
-npm run setup
+npm run setup:local    # resilient variant of `npm run setup` (see docs/SETUP.md)
 
 # Then start ONE of:
 npm run electron:dev   # Desktop app (Electron + Vite) — recommended
 npm run dev            # Hosted web version (Next.js) → http://localhost:3000
 ```
+
+> **Setup failing?** `npm run setup:local` falls back when the submodule commits
+> pinned by this repo no longer exist upstream, or when Electron's prebuilt binary
+> cannot be downloaded (the web app does not need it). Step-by-step instructions,
+> environment variables, and a troubleshooting table live in
+> [docs/SETUP.md](docs/SETUP.md).
 
 You'll be prompted to enter your Muapi API key on first use (skip the key if you only plan to use local models).
 
