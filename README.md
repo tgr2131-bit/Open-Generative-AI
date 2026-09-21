@@ -413,6 +413,9 @@ Every image you upload is saved locally (URL + thumbnail) so you never upload th
 
 ## 🚀 Quick Start
 
+> **Want real generations on your own machine?** [docs/RUN-LOCALLY.md](docs/RUN-LOCALLY.md) is the
+> five-minute path: clone → `npm run setup:local` → `npm run dev` → paste your key.
+
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v18+)
@@ -438,14 +441,22 @@ cd Open-Generative-AI
 # Install dependencies + build workspace packages (studio, workflow, agents).
 # This step is REQUIRED — `npm install` alone is not enough; the workspaces
 # need to be built before either dev script will work.
-npm run setup
+npm run setup:local    # resilient variant of `npm run setup` (see docs/SETUP.md)
 
 # Then start ONE of:
 npm run electron:dev   # Desktop app (Electron + Vite) — recommended
 npm run dev            # Hosted web version (Next.js) → http://localhost:3000
 ```
 
-You'll be prompted to enter your Muapi API key on first use (skip the key if you only plan to use local models).
+> **Setup failing?** `npm run setup:local` falls back when the submodule commits
+> pinned by this repo no longer exist upstream, or when Electron's prebuilt binary
+> cannot be downloaded (the web app does not need it). Step-by-step instructions,
+> environment variables, and a troubleshooting table live in
+> [docs/SETUP.md](docs/SETUP.md).
+
+You'll be prompted to enter your Muapi API key on first use (skip the key if you only plan to use local models). To have a self-hosted instance supply one key for
+all visitors instead — no prompt, and the key never reaches the browser — set
+`MUAPI_API_KEY` before starting the server. See [docs/SETUP.md](docs/SETUP.md#self-hosting-with-one-api-key).
 
 > **Troubleshooting — `Couldn't find a 'pages' directory`**: this means Next.js can't see the `app/` folder. Confirm you're running `npm run dev` from the repo root (the directory that contains `app/`, `package.json`, and `next.config.mjs`), and that you cloned with submodules. Re-run `npm run setup` if `packages/Vibe-Workflow` or `packages/agents` are empty.
 

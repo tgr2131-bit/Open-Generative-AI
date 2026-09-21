@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
+import { getMuapiBaseUrl } from '../../../../src/lib/muapiBase';
+import { logUpstreamFailure, upstreamFailureBody } from '../../../../src/lib/muapiError';
+import { resolveApiKey } from '../../../../src/lib/muapiKey';
 
-const MUAPI_BASE = 'https://api.muapi.ai';
+const MUAPI_BASE = getMuapiBaseUrl();
 
-function getApiKey(request) {
-    // Only accept x-api-key header. Cookie-based auth is removed for security:
-    // cookies without HttpOnly flag can be stolen by any XSS (CWE-522).
-    const headerKey = request.headers.get('x-api-key');
-    return headerKey || null;
-}
 
 function cleanHeaders(request) {
     const headers = new Headers(request.headers);
@@ -27,7 +24,7 @@ export async function GET(request, { params }) {
 
     const headers = cleanHeaders(request);
 
-    const apiKey = getApiKey(request);
+    const apiKey = resolveApiKey(request);
     // NOTE: apiKey is intentionally NOT logged here to prevent credential leakage (CWE-200)
     if (apiKey) headers.set('x-api-key', apiKey);
 
@@ -42,7 +39,8 @@ export async function GET(request, { params }) {
         }
         return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logUpstreamFailure(error, targetUrl);
+        return NextResponse.json(upstreamFailureBody(error, targetUrl), { status: 502 });
     }
 }
 
@@ -56,7 +54,7 @@ export async function POST(request, { params }) {
 
     const headers = cleanHeaders(request);
 
-    const apiKey = getApiKey(request);
+    const apiKey = resolveApiKey(request);
     // NOTE: credential logging removed for security (CWE-200)
     if (apiKey) headers.set('x-api-key', apiKey);
 
@@ -77,7 +75,8 @@ export async function POST(request, { params }) {
         console.log(`[proxy POST] response: status=${response.status}`, JSON.stringify(data).slice(0, 200));
         return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logUpstreamFailure(error, targetUrl);
+        return NextResponse.json(upstreamFailureBody(error, targetUrl), { status: 502 });
     }
 }
 
@@ -91,7 +90,7 @@ export async function DELETE(request, { params }) {
 
     const headers = cleanHeaders(request);
 
-    const apiKey = getApiKey(request);
+    const apiKey = resolveApiKey(request);
     if (apiKey) headers.set('x-api-key', apiKey);
 
     try {
@@ -102,7 +101,8 @@ export async function DELETE(request, { params }) {
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logUpstreamFailure(error, targetUrl);
+        return NextResponse.json(upstreamFailureBody(error, targetUrl), { status: 502 });
     }
 }
 
@@ -116,7 +116,7 @@ export async function PUT(request, { params }) {
 
     const headers = cleanHeaders(request);
 
-    const apiKey = getApiKey(request);
+    const apiKey = resolveApiKey(request);
     if (apiKey) headers.set('x-api-key', apiKey);
 
     try {
@@ -129,6 +129,7 @@ export async function PUT(request, { params }) {
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });
     } catch (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        logUpstreamFailure(error, targetUrl);
+        return NextResponse.json(upstreamFailureBody(error, targetUrl), { status: 502 });
     }
 }
